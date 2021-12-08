@@ -8,6 +8,7 @@ import {
   MsgInstantiateContract,
   MsgStoreCode,
 } from "@terra-money/terra.js";
+import assert from "assert";
 import * as fs from "fs";
 import findFilesInDir from "./findFilesInDir.js";
 
@@ -135,13 +136,8 @@ async function create_offers(offers_addr) {
 }
 
 async function query_offers(offers_addr) {
+  let finalResult;
   const queries = [
-    {
-      offers_query: {
-        limit: 5,
-        last_value: 0,
-      },
-    },
     {
       offers_query: {
         limit: 2,
@@ -149,16 +145,156 @@ async function query_offers(offers_addr) {
         owner: "terra1333veey879eeqcff8j3gfcgwt8cfrg9mq20v6f",
       },
     },
+    {
+      offers_query: {
+        limit: 5,
+        last_value: 0,
+      },
+    },
   ];
 
   for (let idx = 0; idx < queries.length; idx++) {
     const query = queries[idx];
 
-    console.log(`*Querying Offer Contract, Query #${idx}*`, query);
+    console.log(`*Querying Offer Contract, Query Offers #${idx}*`, query);
 
     const result = await terra.wasm.contractQuery(offers_addr, query);
 
     console.log(`Offer Query #${idx} Result:`, result);
+
+    finalResult = result;
+  }
+  return finalResult;
+}
+
+async function query_trades(offers_addr) {
+  let finalResult;
+  const queries = [
+    {
+      trades_query: {
+        trader: "terra1333veey879eeqcff8j3gfcgwt8cfrg9mq20v6f",
+        index: "sender",
+        limit: 10,
+      },
+    },
+    {
+      trades_query: {
+        trader: "terra1333veey879eeqcff8j3gfcgwt8cfrg9mq20v6f",
+        index: "recipient",
+        limit: 10,
+      },
+    },
+  ];
+
+  for (let idx = 0; idx < queries.length; idx++) {
+    const query = queries[idx];
+
+    console.log(`*Querying Offer Contract, Query Trades #${idx}*`, query);
+
+    const result = await terra.wasm.contractQuery(offers_addr, query);
+
+    console.log(`Trades Query #${idx} Result:`, result);
+
+    finalResult = result;
+  }
+
+  // Use last query result for pagination test
+  const tradeAddr1 = finalResult[0].trade.addr;
+  const tradeAddr2 = finalResult[1].trade.addr;
+
+  const query = {
+    trades_query: {
+      trader: "terra1333veey879eeqcff8j3gfcgwt8cfrg9mq20v6f",
+      index: "recipient",
+      last_value: tradeAddr1,
+      limit: 10,
+    },
+  };
+  console.log("*Testing Trade Query Pagination:* Query", query);
+
+  const result = await terra.wasm.contractQuery(offers_addr, query);
+
+  console.log(`Trades Query Pagination Result:`, result);
+
+  assert(
+    result.length === 1,
+    "Error: Wrong pagination result length, should be 1"
+  );
+
+  assert(
+    result[0].trade.addr === tradeAddr2,
+    `Error: First Inclusive pagination result should have trade.addr ${tradeAddr2}`
+  );
+
+  return finalResult;
+}
+async function createTrade(offerId, offers_addr) {
+  let createTradeMsg = new MsgExecuteContract(maker, offers_addr, {
+    new_trade: {
+      offer_id: parseInt(offerId),
+      ust_amount: min_amount + "",
+      counterparty: taker,
+    },
+  });
+  console.log(`*Creating Trade for Offer #${offerId}*`);
+  const result = await executeMsg(createTradeMsg);
+  let tradeAddr = result.logs[0].events
+    .find((e) => e.type === "instantiate_contract")
+    .attributes.find((a) => a.key === "contract_address").value;
+  return tradeAddr;
+}
+
+async function fundTradeEscrow(tradeAddr, offerId) {
+  console.log(`**Trade created for offer #${offerId} with address:`, tradeAddr);
+  console.log(`https://finder.terra.money/${network}/address/${tradeAddr}`);
+  //Send UST and fund trade
+  const coin = Coin.fromData({
+    denom: "uusd",
+    amount: min_amount * 2 + "",
+  });
+  const coins = new Coins([coin]);
+  let fundEscrowMsg = new MsgExecuteContract(
+    taker,
+    tradeAddr,
+    { fund_escrow: {} },
+    coins
+  );
+  console.log(`*Funding Escrow for Offer #${offerId}*`);
+  const result = await executeMsg(fundEscrowMsg, taker_wallet);
+  if (result.txhash) {
+    console.log(`**Escrow Funded for Offer #${offerId}**`);
+  } else {
+    console.log(`%Error funding escrow for Offer #${offerId}%`);
+    process.exit(1);
+  }
+}
+
+async function releaseTradeEscrow(tradeAddr, offerId) {
+  const releaseMsg = new MsgExecuteContract(taker, tradeAddr, {
+    release: {},
+  });
+  console.log(
+    `*Releasing Trade for Offer #${offerId}, TradeAddr ${tradeAddr}*`
+  );
+  // await sleep(2000);
+  const result = await executeMsg(releaseMsg, taker_wallet);
+  console.log(`*Trade released for Offer #${offerId}, TradeAddr ${tradeAddr}*`);
+  return result;
+}
+
+async function createTrades(queryOffersResult, offers_addr) {
+  console.log("queryOffersResult :>> ", queryOffersResult);
+  console.log("offers_addr :>> ", offers_addr);
+
+  for (let idx = 0; idx < queryOffersResult.length; idx++) {
+    const offer = queryOffersResult[idx];
+
+    const tradeAddr = await createTrade(offer.id, offers_addr);
+
+    await fundTradeEscrow(tradeAddr, offer.id);
+
+    // await releaseTradeEscrow(tradeAddr, offer.id);
+    // await sleep(10000);
   }
 }
 
@@ -166,7 +302,6 @@ async function test(codeIds) {
   let factoryCfg;
   let factoryAddr = process.env.FACTORY;
   let tradeAddr;
-
   let setup = new Promise((resolve, reject) => {
     if (factoryAddr) {
       console.log("*Querying Factory Config*");
@@ -195,7 +330,12 @@ async function test(codeIds) {
       console.log("Factory Config result", r);
 
       const createOfferResult = await create_offers(factoryCfg.offers_addr);
-      await query_offers(factoryCfg.offers_addr);
+
+      const queryOffersResult = await query_offers(factoryCfg.offers_addr);
+
+      await createTrades(queryOffersResult, factoryCfg.offers_addr);
+
+      await query_trades(factoryCfg.offers_addr);
 
       return createOfferResult;
     })
@@ -386,4 +526,11 @@ if (process.env.DEPLOY) {
 }
 
 // await create_offers("terra19qlfxw9sps07pxnqa5ecw73nyjqmsktut9tlhj");
-// await query_offers("terra19qlfxw9sps07pxnqa5ecw73nyjqmsktut9tlhj");
+// const queryOffersResult = await query_offers(
+//   "terra1urwudsduq4zq2p26zs6dy4kyn2x28e86ycysng"
+// );
+// await createTrades(
+//   queryOffersResult,
+//   "terra1urwudsduq4zq2p26zs6dy4kyn2x28e86ycysng"
+// );
+// await query_trades("terra1370h9xl5dgjyrjpkruxcr6a6gxwdgvuwyhtuac");
