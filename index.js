@@ -293,7 +293,7 @@ async function createTrades(queryOffersResult, offers_addr) {
 
     await fundTradeEscrow(tradeAddr, offer.id);
 
-    // await releaseTradeEscrow(tradeAddr, offer.id);
+    // await releaseTradeEscrow(tradeAddr, offer.id); // throws unauthorized on 2nd trade
     // await sleep(10000);
   }
 }
