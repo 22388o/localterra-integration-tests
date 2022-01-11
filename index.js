@@ -22,7 +22,7 @@ let maker_seed =
   "uncle simple tide bundle apart absurd tenant fluid slam actor caught month hip tornado cattle regular nerve brand tower boy alert crash good neck";
 let taker_seed =
   "paddle prefer true embody scissors romance train replace flush rather until clap intact hello used cricket limb cake nut permit toss stove cute easily";
-let arbitrator = // terra1f9cwmeq4dcrvkdtj8nn3a0u3rwycqhjcx4wecz
+let arbitrator_seed = // terra1f9cwmeq4dcrvkdtj8nn3a0u3rwycqhjcx4wecz
   "fossil usual local dawn nice wrap birth clump top reward bag sense task piano language kingdom month rookie sport stairs tennis deal gadget recycle";
 let cw20_code_id = 148;
 
@@ -40,11 +40,13 @@ if (process.env.NETWORK === "localterra") {
     "index light average senior silent limit usual local involve delay update rack cause inmate wall render magnet common feature laundry exact casual resource hundred";
   taker_seed = // test10
     "prefer forget visit mistake mixture feel eyebrow autumn shop pair address airport diesel street pass vague innocent poem method awful require hurry unhappy shoulder";
-  arbitrator = // test3
+  arbitrator_seed = // test3
     "symbol force gallery make bulk round subway violin worry mixture penalty kingdom boring survey tool fringe patrol sausage hard admit remember broken alien absorb";
 }
+
 let maker_key = new MnemonicKey({ mnemonic: maker_seed });
 let taker_key = new MnemonicKey({ mnemonic: taker_seed });
+let arbitrator_key = new MnemonicKey({ mnemonic: arbitrator_seed });
 
 const terra = new LCDClient({
   URL: lcdURL,
@@ -54,6 +56,10 @@ const maker = maker_key.accAddress;
 const maker_wallet = terra.wallet(maker_key);
 const taker = taker_key.accAddress;
 const taker_wallet = terra.wallet(taker_key);
+const arbitrator = arbitrator_key.accAddress;
+
+const arbitrator_wallet = terra.wallet(arbitrator_key);
+
 const min_amount = "120000000";
 const max_amount = "360000000";
 const offer_type = "buy";
@@ -242,7 +248,7 @@ async function createTrade(offerId, offers_addr) {
       ust_amount: min_amount + "",
       counterparty: taker,
       taker_contact: "USTKing",
-      arbitrator: "terra1757tkx08n0cqrw7p86ny9lnxsqeth0wgp0em95", // test3
+      arbitrator,
     },
   });
   console.log(`*Creating Trade for Offer #${offerId}*`);
@@ -253,6 +259,19 @@ async function createTrade(offerId, offers_addr) {
   return tradeAddr;
 }
 
+async function disputeTrade(tradeAddr) {
+  console.log(`**Disputing Trade:`, tradeAddr);
+
+  let disputeMsg = new MsgExecuteContract(taker, tradeAddr, { dispute: {} });
+
+  const result = await executeMsg(disputeMsg, taker_wallet);
+  if (result.txhash) {
+    console.log(`**Disputed Trade ${tradeAddr}**`);
+  } else {
+    console.log(`%Error disputing Trade ${tradeAddr}%`);
+    process.exit(1);
+  }
+}
 async function fundTradeEscrow(tradeAddr, offerId) {
   console.log(`**Trade created for offer #${offerId} with address:`, tradeAddr);
   console.log(`https://finder.terra.money/${network}/address/${tradeAddr}`);
@@ -278,16 +297,25 @@ async function fundTradeEscrow(tradeAddr, offerId) {
   }
 }
 
-async function releaseTradeEscrow(tradeAddr, offerId) {
-  const releaseMsg = new MsgExecuteContract(taker, tradeAddr, {
+async function releaseTradeEscrow(tradeAddr) {
+  const releaseMsg = new MsgExecuteContract(arbitrator, tradeAddr, {
     release: {},
   });
-  console.log(
-    `*Releasing Trade for Offer #${offerId}, TradeAddr ${tradeAddr}*`
-  );
+  console.log(`*Releasing Trade ${tradeAddr}*`);
   // await sleep(2000);
-  const result = await executeMsg(releaseMsg, taker_wallet);
-  console.log(`*Trade released for Offer #${offerId}, TradeAddr ${tradeAddr}*`);
+  const result = await executeMsg(releaseMsg, arbitrator_wallet);
+  console.log(`*Trade released ${tradeAddr}*`);
+  return result;
+}
+
+async function refundTradeEscrow(tradeAddr) {
+  const refundMsg = new MsgExecuteContract(arbitrator, tradeAddr, {
+    refund: {},
+  });
+  console.log(`*Refunding Trade ${tradeAddr}*`);
+  // await sleep(2000);
+  const result = await executeMsg(refundMsg, arbitrator_wallet);
+  console.log(`*Trade refunded ${tradeAddr}*`);
   return result;
 }
 
@@ -295,16 +323,24 @@ async function createTrades(queryOffersResult, offers_addr) {
   console.log("queryOffersResult :>> ", queryOffersResult);
   console.log("offers_addr :>> ", offers_addr);
 
+  const tradeAddrs = [];
+
   for (let idx = 0; idx < queryOffersResult.length; idx++) {
     const offer = queryOffersResult[idx];
 
-    const tradeAddr = await createTrade(offer.id, offers_addr);
+    tradeAddrs.push(await createTrade(offer.id, offers_addr));
 
-    await fundTradeEscrow(tradeAddr, offer.id);
+    await fundTradeEscrow(tradeAddrs[tradeAddrs.length - 1], offer.id);
 
-    // await releaseTradeEscrow(tradeAddr, offer.id); // throws unauthorized on 2nd trade
+    // await releaseTradeEscrow(tradeAddr[-1], offer.id); // throws unauthorized on 2nd trade
     // await sleep(10000);
   }
+
+  await disputeTrade(tradeAddrs[0]);
+  await releaseTradeEscrow(tradeAddrs[0]);
+
+  await disputeTrade(tradeAddrs[1]);
+  await refundTradeEscrow(tradeAddrs[1]);
 }
 
 async function test(codeIds) {
