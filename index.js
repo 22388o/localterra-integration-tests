@@ -94,6 +94,7 @@ async function create_offers(offers_addr) {
           fiat_currency: "COP",
           min_amount,
           max_amount,
+          maker_contact: "LunaQueen",
         },
       },
     },
@@ -104,6 +105,7 @@ async function create_offers(offers_addr) {
           fiat_currency: "BRL",
           min_amount,
           max_amount,
+          maker_contact: "LunaQueen",
         },
       },
     },
@@ -114,6 +116,7 @@ async function create_offers(offers_addr) {
           fiat_currency: "USD",
           min_amount,
           max_amount,
+          maker_contact: "LunaQueen",
         },
       },
     },
@@ -234,6 +237,7 @@ async function createTrade(offerId, offers_addr) {
       offer_id: parseInt(offerId),
       ust_amount: min_amount + "",
       counterparty: taker,
+      taker_contact: "USTKing",
     },
   });
   console.log(`*Creating Trade for Offer #${offerId}*`);
@@ -348,6 +352,7 @@ async function test(codeIds) {
             fiat_currency: "BRL",
             min_amount,
             max_amount,
+            maker_contact: "LunaQueen",
           },
         },
       };
@@ -368,6 +373,7 @@ async function test(codeIds) {
             offer_id: parseInt(offerId),
             ust_amount: min_amount + "",
             counterparty: taker,
+            taker_contact: "USTKing",
           },
         }
       );
