@@ -22,6 +22,8 @@ let maker_seed =
   "uncle simple tide bundle apart absurd tenant fluid slam actor caught month hip tornado cattle regular nerve brand tower boy alert crash good neck";
 let taker_seed =
   "paddle prefer true embody scissors romance train replace flush rather until clap intact hello used cricket limb cake nut permit toss stove cute easily";
+let arbitrator = // terra1f9cwmeq4dcrvkdtj8nn3a0u3rwycqhjcx4wecz
+  "fossil usual local dawn nice wrap birth clump top reward bag sense task piano language kingdom month rookie sport stairs tennis deal gadget recycle";
 let cw20_code_id = 148;
 
 if (process.env.NETWORK === "localterra") {
@@ -34,10 +36,12 @@ if (process.env.NETWORK === "localterra") {
   }
   network = "localterra";
   lcdURL = "http://143.244.190.1:3060";
-  maker_seed =
+  maker_seed = // test9
     "index light average senior silent limit usual local involve delay update rack cause inmate wall render magnet common feature laundry exact casual resource hundred";
-  taker_seed =
+  taker_seed = // test10
     "prefer forget visit mistake mixture feel eyebrow autumn shop pair address airport diesel street pass vague innocent poem method awful require hurry unhappy shoulder";
+  arbitrator = // test3
+    "symbol force gallery make bulk round subway violin worry mixture penalty kingdom boring survey tool fringe patrol sausage hard admit remember broken alien absorb";
 }
 let maker_key = new MnemonicKey({ mnemonic: maker_seed });
 let taker_key = new MnemonicKey({ mnemonic: taker_seed });
@@ -238,6 +242,7 @@ async function createTrade(offerId, offers_addr) {
       ust_amount: min_amount + "",
       counterparty: taker,
       taker_contact: "USTKing",
+      arbitrator: "terra1757tkx08n0cqrw7p86ny9lnxsqeth0wgp0em95", // test3
     },
   });
   console.log(`*Creating Trade for Offer #${offerId}*`);
@@ -374,6 +379,7 @@ async function test(codeIds) {
             ust_amount: min_amount + "",
             counterparty: taker,
             taker_contact: "USTKing",
+            arbitrator: "terra1757tkx08n0cqrw7p86ny9lnxsqeth0wgp0em95", // test3
           },
         }
       );
