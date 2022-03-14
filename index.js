@@ -51,6 +51,7 @@ const taker = taker_key.accAddress;
 const taker_wallet = terra.wallet(taker_key);
 const min_amount = "120000000";
 const max_amount = "360000000";
+const maker_contact = "LunaQueen";
 const offer_type = "buy";
 
 function executeMsg(msg, wallet = maker_wallet) {
@@ -93,6 +94,7 @@ async function create_offers(offers_addr) {
           fiat_currency: "COP",
           min_amount,
           max_amount,
+          maker_contact,
         },
       },
     },
@@ -103,6 +105,7 @@ async function create_offers(offers_addr) {
           fiat_currency: "BRL",
           min_amount,
           max_amount,
+          maker_contact,
         },
       },
     },
@@ -113,6 +116,7 @@ async function create_offers(offers_addr) {
           fiat_currency: "USD",
           min_amount,
           max_amount,
+          maker_contact,
         },
       },
     },
@@ -208,6 +212,7 @@ async function test(codeIds) {
             fiat_currency: "BRL",
             min_amount,
             max_amount,
+            maker_contact,
           },
         },
       };
@@ -227,7 +232,9 @@ async function test(codeIds) {
           new_trade: {
             offer_id: parseInt(offerId),
             ust_amount: min_amount + "",
-            counterparty: taker,
+            taker: "taker",
+            taker_contact: "USTKing",
+            arbitrator: "arbitratior",
           },
         }
       );
@@ -291,6 +298,11 @@ function getCodeIdFromResult(result) {
 }
 
 function getAttribute(result, event, attribute) {
+  console.log('maker', maker)
+  console.log('result', result)
+  console.log('event', event)
+  console.log('attribute', attribute)
+
   return result.logs[0].events
     .find((e) => e.type === event)
     .attributes.find((e) => e.key === attribute).value;
