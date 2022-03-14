@@ -232,9 +232,9 @@ async function test(codeIds) {
           new_trade: {
             offer_id: parseInt(offerId),
             ust_amount: min_amount + "",
-            taker: "taker",
+            taker: maker,
             taker_contact: "USTKing",
-            arbitrator: "arbitratior",
+            arbitrator: maker,
           },
         }
       );
