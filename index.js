@@ -68,12 +68,12 @@ function instantiateFactory(codeIds) {
   const factoryInstantiateMsg = {
     cw20_code_id: parseInt(cw20_code_id),
     gov_contract_code_id: codeIds.governance,
-    fee_collector_code_id: codeIds.fee_collector,
     trading_incentives_code_id: codeIds.trading_incentives,
     offer_code_id: codeIds.offer,
     trade_code_id: codeIds.trade,
-    fee_collector_threshold: "1000000",
     local_ust_pool_addr: maker, //TODO: use actual address
+    staking_code_id: codeIds.localterra_staking,
+    local_token_addr: process.env.LOCAL_TOKEN_ADDR,
   };
   const instantiateFactoryMsg = new MsgInstantiateContract(
     maker,
